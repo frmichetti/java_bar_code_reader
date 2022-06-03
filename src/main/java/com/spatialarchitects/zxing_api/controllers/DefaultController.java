@@ -3,6 +3,7 @@ package com.spatialarchitects.zxing_api.controllers;
 import com.google.zxing.*;
 import com.spatialarchitects.zxing_api.dto.input.TestDTO;
 import com.spatialarchitects.zxing_api.dto.response.CodeDTO;
+import com.spatialarchitects.zxing_api.util.ZippedFileInputStream;
 import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -12,8 +13,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import javax.imageio.ImageIO;
 
@@ -32,7 +36,7 @@ public class DefaultController {
     }
 
     @RequestMapping(value = "/scan", method = RequestMethod.POST, consumes = MediaType.ALL_VALUE)
-    public ResponseEntity<CodeDTO> receiveFile (@RequestPart("file") MultipartFile mf) {
+    public ResponseEntity<CodeDTO> processPNGFile (@RequestPart("file") MultipartFile mf) {
         String barcode;
         try {
 
@@ -45,8 +49,46 @@ public class DefaultController {
         } catch (IOException | ChangeSetPersister.NotFoundException | NotFoundException  e) {
             return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
         }
-        return ResponseEntity.ok(new CodeDTO(barcode));
+        return ResponseEntity.ok(new CodeDTO(barcode, mf.getOriginalFilename()));
     }
+
+    @RequestMapping(value = "/scan_batch", method = RequestMethod.POST, consumes = MediaType.ALL_VALUE)
+    public ResponseEntity<ArrayList<CodeDTO>> processZIPFile (@RequestPart("file") MultipartFile mf) {
+        String barcode = null;
+        ArrayList<CodeDTO> barcodes = new ArrayList<>();
+        Map<DecodeHintType, Boolean> decodeHintMap = new HashMap<>();
+        decodeHintMap.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+        decodeHintMap.put(DecodeHintType.ALSO_INVERTED, Boolean.TRUE);
+        decodeHintMap.put(DecodeHintType.PURE_BARCODE, Boolean.FALSE);
+
+        try {
+
+            ZipInputStream zipInputStream = new ZipInputStream(mf.getInputStream());
+
+            ZipEntry entry;
+            while((entry = zipInputStream.getNextEntry())!= null) {
+
+                ZippedFileInputStream archivedFileInputStream = new ZippedFileInputStream(zipInputStream);
+
+                try {
+                    barcode = readCode(archivedFileInputStream, "UTF-8", decodeHintMap);
+                    barcodes.add(new CodeDTO(barcode, entry.getName()));
+                } catch (ChangeSetPersister.NotFoundException | NotFoundException e) {
+                    barcodes.add(new CodeDTO("Not Found", entry.getName()));
+                }
+
+                archivedFileInputStream.close();
+
+            }
+            zipInputStream.close();
+
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+        return ResponseEntity.ok(barcodes);
+    }
+
+   
 
     public static void createQRCode(String qrCodeData, String filePath,
                                     String charset, Map hintMap, int qrCodeheight, int qrCodewidth)
