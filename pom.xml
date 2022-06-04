@@ -14,9 +14,9 @@
     <packaging>war</packaging>
     <name>zxing_api</name>
     <description>zxing_api</description>
-    <properties>
+    <!-- <properties>
         <java.version>17</java.version>
-    </properties>
+    </properties> -->
     <dependencies>
         <!-- <dependency>
             <groupId>org.springframework.boot</groupId>
