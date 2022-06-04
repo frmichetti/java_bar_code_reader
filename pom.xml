@@ -11,7 +11,7 @@
     <groupId>com.spatialarchitects</groupId>
     <artifactId>zxing_api</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <packaging>war</packaging>
+    <packaging>jar</packaging>
     <name>zxing_api</name>
     <description>zxing_api</description>
     <!-- <properties>
